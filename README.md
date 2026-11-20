@@ -70,7 +70,7 @@ A page reload resets the plugin to disabled.
 ## Tests
 
 - `npm test` runs the JS unit tests.
-- `tests/android` is an instrumented test project. It compiles the real plugin sources against `org.apache.cordova:framework`, takes real screenshots with `UiAutomation`, and checks that:
+- `tests/android` is an instrumented test project. It compiles the real plugin sources against `org.apache.cordova:framework`, takes real screenshots with shell `screencap`, and checks that:
   - enabling the flag blocks capture,
   - clearing it restores capture, including over repeated toggles,
   - devices that cannot clear the flag never get it enabled,

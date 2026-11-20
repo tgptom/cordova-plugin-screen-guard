@@ -7,8 +7,10 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.app.UiAutomation;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Build;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 
 import androidx.test.core.app.ActivityScenario;
@@ -23,10 +25,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Verifies with real screenshots (UiAutomation) that FLAG_SECURE blocks capture
+ * Verifies with real screenshots (shell `screencap`, same as `adb shell screencap`) that FLAG_SECURE blocks capture
  * and that clearing it restores capture. Run on API 24..29 in CI.
  */
 @RunWith(AndroidJUnit4.class)
@@ -113,21 +117,37 @@ public class SecureFlagScreenshotTest {
         return r.get();
     }
 
-    /** Polls screenshots until the magenta content is (or is not) visible. */
+    /** Polls until two consecutive screenshots show the magenta content (or don't). */
     private boolean awaitCapturable(boolean expected) {
-        UiAutomation ua = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         long end = SystemClock.uptimeMillis() + TIMEOUT_MS;
+        int consecutive = 0;
         while (SystemClock.uptimeMillis() < end) {
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            Bitmap shot = ua.takeScreenshot();
+            Bitmap shot = screencap();
             if (shot != null) {
                 boolean visible = isContentColor(shot.getPixel(shot.getWidth() / 2, shot.getHeight() / 2));
                 shot.recycle();
-                if (visible == expected) return true;
+                consecutive = visible == expected ? consecutive + 1 : 0;
+                if (consecutive >= 2) return true;
             }
             SystemClock.sleep(250);
         }
         return false;
+    }
+
+    /**
+     * UiAutomation.takeScreenshot() is captured by system_server, which may include
+     * secure layers, so it is not a valid oracle. `screencap` runs as the shell user
+     * and renders FLAG_SECURE windows black, like ordinary screenshots.
+     */
+    private static Bitmap screencap() {
+        UiAutomation ua = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        ParcelFileDescriptor pfd = ua.executeShellCommand("screencap -p");
+        try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(pfd)) {
+            return BitmapFactory.decodeStream(in);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private static boolean isContentColor(int px) {
