@@ -111,4 +111,12 @@ jobs:
           cd app
           cordova platform add ios@${{ matrix.platform }}
           cordova plugin add ../plugin
-          cordova build ios --emulator
+          if [ "${{ matrix.platform }}" = "7" ]; then
+            # cordova-ios 7 picks a named simulator that may not exist on current Xcode images.
+            cordova prepare ios
+            cd platforms/ios
+            xcodebuild -workspace ScreenGuardApp.xcworkspace -scheme ScreenGuardApp -configuration Debug \
+              -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          else
+            cordova build ios --emulator
+          fi
