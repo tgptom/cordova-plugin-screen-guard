@@ -25,6 +25,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,23 +57,21 @@ public class SecureFlagScreenshotTest {
     @Test
     public void screenshotVisibleByDefault() {
         scenario = ActivityScenario.launch(MainActivity.class);
-        assertTrue("content should be capturable before enabling", awaitCapturable(true));
+        assertTrue(msg("content should be capturable before enabling"), awaitCapturable(true));
     }
 
     @Test
     public void enableBlocksAndDisableRestoresScreenshots() {
         scenario = ActivityScenario.launch(MainActivity.class);
-        assertTrue(awaitCapturable(true));
+        assertTrue(msg("capturable before enabling"), awaitCapturable(true));
 
         assertEquals(SecureFlagController.Result.OK, apply(true));
         assertTrue(secure());
-        assertTrue("FLAG_SECURE should block screenshots on API " + Build.VERSION.SDK_INT,
-                awaitCapturable(false));
+        assertTrue(msg("FLAG_SECURE should block screenshots"), awaitCapturable(false));
 
         assertEquals(SecureFlagController.Result.OK, apply(false));
         assertFalse(secure());
-        assertTrue("clearing FLAG_SECURE must restore screenshots on API " + Build.VERSION.SDK_INT,
-                awaitCapturable(true));
+        assertTrue(msg("clearing FLAG_SECURE must restore screenshots"), awaitCapturable(true));
     }
 
     @Test
@@ -80,9 +79,9 @@ public class SecureFlagScreenshotTest {
         scenario = ActivityScenario.launch(MainActivity.class);
         for (int i = 0; i < 3; i++) {
             assertEquals(SecureFlagController.Result.OK, apply(true));
-            assertTrue("cycle " + i + " blocked", awaitCapturable(false));
+            assertTrue(msg("cycle " + i + " blocked"), awaitCapturable(false));
             assertEquals(SecureFlagController.Result.OK, apply(false));
-            assertTrue("cycle " + i + " restored", awaitCapturable(true));
+            assertTrue(msg("cycle " + i + " restored"), awaitCapturable(true));
         }
     }
 
@@ -94,7 +93,7 @@ public class SecureFlagScreenshotTest {
 
         assertEquals(SecureFlagController.Result.CLEAR_UNSUPPORTED, apply(true));
         assertFalse(secure());
-        assertTrue(awaitCapturable(true));
+        assertTrue(msg("must stay capturable"), awaitCapturable(true));
     }
 
     @Test
@@ -102,7 +101,7 @@ public class SecureFlagScreenshotTest {
         scenario = ActivityScenario.launch(OtherActivity.class);
         assertEquals(SecureFlagController.Result.NOT_MAIN_ACTIVITY, apply(true));
         assertFalse(secure());
-        assertTrue(awaitCapturable(true));
+        assertTrue(msg("must stay capturable"), awaitCapturable(true));
     }
 
     private SecureFlagController.Result apply(boolean enabled) {
@@ -117,37 +116,58 @@ public class SecureFlagScreenshotTest {
         return r.get();
     }
 
-    /** Polls until two consecutive screenshots show the magenta content (or don't). */
+    private String lastObservation = "none";
+
+    /**
+     * Polls until two consecutive captures show the magenta content (or don't).
+     * A refused/empty capture counts as "not capturable": on older releases
+     * SurfaceFlinger denies the capture when a secure layer is on screen.
+     */
     private boolean awaitCapturable(boolean expected) {
         long end = SystemClock.uptimeMillis() + TIMEOUT_MS;
         int consecutive = 0;
         while (SystemClock.uptimeMillis() < end) {
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            Bitmap shot = screencap();
-            if (shot != null) {
-                boolean visible = isContentColor(shot.getPixel(shot.getWidth() / 2, shot.getHeight() / 2));
-                shot.recycle();
-                consecutive = visible == expected ? consecutive + 1 : 0;
-                if (consecutive >= 2) return true;
-            }
+            boolean visible = isContentVisible();
+            consecutive = visible == expected ? consecutive + 1 : 0;
+            if (consecutive >= 2) return true;
             SystemClock.sleep(250);
         }
         return false;
     }
 
+    private String msg(String m) {
+        return m + " (API " + Build.VERSION.SDK_INT + ", last capture: " + lastObservation + ")";
+    }
+
     /**
      * UiAutomation.takeScreenshot() is captured by system_server, which may include
-     * secure layers, so it is not a valid oracle. `screencap` runs as the shell user
-     * and renders FLAG_SECURE windows black, like ordinary screenshots.
+     * secure layers, so it is not a valid oracle. `screencap` runs as the shell user,
+     * like `adb shell screencap`, and cannot capture FLAG_SECURE windows.
      */
-    private static Bitmap screencap() {
+    private boolean isContentVisible() {
         UiAutomation ua = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         ParcelFileDescriptor pfd = ua.executeShellCommand("screencap -p");
+        byte[] png;
         try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(pfd)) {
-            return BitmapFactory.decodeStream(in);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            png = out.toByteArray();
         } catch (IOException e) {
-            return null;
+            lastObservation = "io error " + e;
+            return false;
         }
+        Bitmap shot = BitmapFactory.decodeByteArray(png, 0, png.length);
+        if (shot == null) {
+            lastObservation = "capture refused (" + png.length + " bytes)";
+            return false;
+        }
+        int px = shot.getPixel(shot.getWidth() / 2, shot.getHeight() / 2);
+        shot.recycle();
+        lastObservation = String.format("center pixel #%08X", px);
+        return isContentColor(px);
     }
 
     private static boolean isContentColor(int px) {
