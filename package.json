@@ -1,0 +1,45 @@
+{
+  "name": "cordova-plugin-screen-guard",
+  "version": "1.0.0",
+  "description": "Cordova plugin to block screenshots on Android (FLAG_SECURE) and notify JS on iOS so sensitive content (e.g. OTPs) can be hidden.",
+  "types": "types/index.d.ts",
+  "cordova": {
+    "id": "cordova-plugin-screen-guard",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-ios",
+    "screenshot",
+    "flag_secure",
+    "otp"
+  ],
+  "engines": {
+    "cordovaDependencies": {
+      "1.0.0": {
+        "cordova-android": ">=14.0.0",
+        "cordova-ios": ">=7.0.0"
+      }
+    }
+  },
+  "files": [
+    "plugin.xml",
+    "www",
+    "src",
+    "types",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node tests/js/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tgptom/cordova-plugin-screen-guard.git"
+  },
+  "license": "MIT"
+}

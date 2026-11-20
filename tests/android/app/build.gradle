@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Cordova framework version to compile the plugin against (14.x or 15.x).
+def cordovaFramework = project.findProperty('cordovaFramework') ?: '15.1.0'
+
+android {
+    namespace 'com.tgptom.screenguard.test'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.tgptom.screenguard.test'
+        minSdk 24
+        targetSdk 36
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    sourceSets {
+        // Compile the real plugin sources.
+        main.java.srcDirs += ['../../../src/android']
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation "org.apache.cordova:framework:${cordovaFramework}"
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+        id="cordova-plugin-screen-guard"
+        version="1.0.0">
+    <name>ScreenGuard</name>
+    <description>Block screenshots on Android (FLAG_SECURE on MainActivity) and emit a "screenguard" event on iOS.</description>
+    <license>MIT</license>
+
+    <engines>
+        <engine name="cordova-android" version=">=14.0.0" />
+        <engine name="cordova-ios" version=">=7.0.0" />
+    </engines>
+
+    <js-module src="www/ScreenGuard.js" name="ScreenGuard">
+        <clobbers target="ScreenGuard" />
+    </js-module>
+
+    <platform name="android">
+        <config-file target="res/xml/config.xml" parent="/*">
+            <feature name="ScreenGuard">
+                <param name="android-package" value="com.tgptom.screenguard.ScreenGuard" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
+        <source-file src="src/android/ScreenGuard.java" target-dir="src/com/tgptom/screenguard" />
+        <source-file src="src/android/SecureFlagController.java" target-dir="src/com/tgptom/screenguard" />
+    </platform>
+
+    <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <feature name="ScreenGuard">
+                <param name="ios-package" value="CDVScreenGuard" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
+        <header-file src="src/ios/CDVScreenGuard.h" />
+        <source-file src="src/ios/CDVScreenGuard.m" />
+    </platform>
+</plugin>
